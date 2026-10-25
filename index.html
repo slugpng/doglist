@@ -142,7 +142,6 @@ function wrapText(text, maxWidth, font) {
 async function drawInventory(data) {
   const scale = Number(document.querySelector('#scale').value) || 1.5;
   const categories = Object.entries(data.inventory).filter(([,items]) => Array.isArray(items) && items.length);
-  
   const cols = 3;
   const gap = 14;
   const outer = 18;
