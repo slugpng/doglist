@@ -64,7 +64,7 @@ function extractPayload(raw) {
   const begin = raw.indexOf('BEGIN-COMPRESSED-BASE64-ENCODED-OUTPUT');
   const end = raw.indexOf('END-COMPRESSED-BASE64-ENCODED-OUTPUT');
   if (begin < 0 || end < 0 || end <= begin) throw new Error('Could not find the DOGDATA begin/end markers.');
-  return raw.slice(begin + 'BEGIN-COMPRESSED-BASE64-ENCODED-OUTPUT'.length, end).replace(/\s+/g, '');
+  return raw.slice(begin + 'BEGIN-COMPRESSED-BASE64-ENCODED-OUTPUT'.length, end).replace(/[^A-Za-z0-9+/=]/g, '');
 }
 async function decodeDogData(raw) {
   if (!('DecompressionStream' in window)) throw new Error('This browser does not support gzip decompression. Try updating Firefox.');
@@ -104,7 +104,6 @@ function wrapText(text, maxWidth, font) {
 async function drawInventory(data) {
   const scale = Number(document.querySelector('#scale').value) || 1.5;
   const categories = Object.entries(data.inventory).filter(([,items]) => Array.isArray(items) && items.length);
-  // Four vertical columns make a wide, compact image similar to the reference.
   const baseW = 1800, cols = 4, gap = 14, outer = 18, panelPad = 10;
   const colW = (baseW - outer*2 - gap*(cols-1)) / cols;
   const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;
