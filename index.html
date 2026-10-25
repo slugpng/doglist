@@ -69,17 +69,7 @@ function extractPayload(raw) {
 async function decodeDogData(raw) {
   if (!('DecompressionStream' in window)) throw new Error('This browser does not support gzip decompression. Try updating Firefox.');
   const b64 = extractPayload(raw);
-  let binary;
-try {
-  binary = atob(b64);
-} catch (e) {
-  throw new Error(
-    'Base64 decoding failed. Length: ' + b64.length +
-    ', remainder: ' + (b64.length % 4) +
-    ', start: ' + b64.slice(0, 20) +
-    ', end: ' + b64.slice(-20)
-  );
-}
+  const binary = atob(b64);
   const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   const jsonText = await new Response(stream).text();
