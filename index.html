@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DogData PNG Generator</title>
+<title>DOGDATA png gen</title>
 <style>
 :root { color-scheme: dark; --bg:#10294a; --panel:#1b2740; --border:#2b3c5b; --text:#f1f3fa; --muted:#bdc7dd; }
 * { box-sizing:border-box; }
@@ -13,68 +13,106 @@ h1 { font-size:1.4rem; margin:0 0 8px; }
 p { color:var(--muted); line-height:1.45; }
 .controls { display:grid; gap:12px; padding:14px; background:var(--panel); border:1px solid var(--border); border-radius:12px; }
 label { font-weight:600; }
-input,button { font:inherit; }
-input[type=file] { width:100%; max-width:100%; }
+input,button,textarea,select { font:inherit; }
+input[type=file], textarea, select { width:100%; max-width:100%; }
+textarea { min-height:150px; resize:vertical; padding:10px; border:1px solid var(--border); border-radius:8px; color:var(--text); background:#0d2341; }
 button { padding:11px 14px; border:0; border-radius:8px; background:#4568a3; color:white; font-weight:700; }
 button:disabled { opacity:.45; }
 #status { min-height:1.5em; color:#d8e5ff; overflow-wrap:anywhere; }
 .preview-wrap { margin-top:16px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:#0d2341; padding:8px; }
 canvas { display:block; width:100%; height:auto; }
 .small { font-size:.88rem; color:var(--muted); }
+hr { border:0; border-top:1px solid var(--border); width:100%; }
 </style>
 </head>
 <body>
 <main>
-  <h1>DogData PNG Generator</h1>
-  <p>Choose the <code>dogdata1.txt</code> export from your DogData grabber. This page unpacks it locally in your browser, lays out the item categories, and exports one PNG. It does not upload your inventory anywhere.</p>
+  <h1>dogdata png gen</h1>
+  <p>upload or paste your data from the grabber! happy trading! :-)</p>
   <section class="controls">
-    <label for="file">1. Choose your DOGDATA text file</label>
+    <label for="file">upload your txt file</label>
     <input id="file" type="file" accept=".txt,text/plain">
-    <label for="scale">2. Image size</label>
+    OR
+    <label for="pastedData">paste your data</label>
+    <div class="small">*note: some mobile keyboards cut off long text when using the built in copy/paste function. long press inside the box and select paste instead!</div>
+    <textarea id="pastedData" placeholder="paste thy data, knave"></textarea>
+    <button id="clearPaste" type="button">clear</button>
+    <label for="scale">image size</label>
     <select id="scale">
-      <option value="1">Standard (smaller PNG)</option>
-      <option value="1.5" selected>Large (recommended)</option>
-      <option value="2">Extra large (bigger file)</option>
+      <option value="1">standard (smaller png)</option>
+      <option value="1.5" selected>large (recommended)</option>
+      <option value="2">extra large (bigger file)</option>
     </select>
-    <button id="make" disabled>Generate inventory preview</button>
-    <button id="save" disabled>Save PNG</button>
-    <div id="status" role="status">Choose your DOGDATA text file to begin.</div>
-    <div class="small">Tip: the PNG may be much wider/taller than your phone screen. That's intentional, so all categories fit into one image.</div>
+    <button id="make" disabled>generate inventory preview</button>
+    <button id="save" disabled>save png</button>
+    <div id="status" role="status">choose a file or paste your DOGDATA output to begin.</div>
+    <div class="small">*the png may be much wider/taller than your phone screen. that's intentional, so all categories fit into one image!</div>
   </section>
   <div class="preview-wrap"><canvas id="canvas" width="900" height="300" aria-label="Inventory image preview"></canvas></div>
 </main>
 <script>
 const fileInput = document.querySelector('#file');
+const pastedData = document.querySelector('#pastedData');
+const clearPasteButton = document.querySelector('#clearPaste');
 const makeButton = document.querySelector('#make');
 const saveButton = document.querySelector('#save');
 const statusBox = document.querySelector('#status');
 const canvas = document.querySelector('#canvas');
 const ctx = canvas.getContext('2d');
 let inventoryData = null;
-let finalBlobUrl = null;
 
-fileInput.addEventListener('change', () => {
+function hasInput() {
+  return Boolean(pastedData.value.trim() || (fileInput.files && fileInput.files.length));
+}
+function updateInputStatus() {
   inventoryData = null;
-  makeButton.disabled = !fileInput.files.length;
+  makeButton.disabled = !hasInput();
   saveButton.disabled = true;
-  statusBox.textContent = fileInput.files.length ? 'File selected. Tap Generate inventory preview.' : 'Choose your DOGDATA text file to begin.';
+  statusBox.textContent = hasInput()
+    ? (pastedData.value.trim() ? 'pasted text ready. click generate inventory preview.' : 'file selected. click generate inventory preview.')
+    : 'choose a file or paste your DOGDATA output to begin!';
+}
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) pastedData.value = '';
+  updateInputStatus();
 });
-
+pastedData.addEventListener('input', () => {
+  if (pastedData.value.trim()) fileInput.value = '';
+  updateInputStatus();
+});
+clearPasteButton.addEventListener('click', () => {
+  pastedData.value = '';
+  updateInputStatus();
+});
 function extractPayload(raw) {
   const begin = raw.indexOf('BEGIN-COMPRESSED-BASE64-ENCODED-OUTPUT');
   const end = raw.indexOf('END-COMPRESSED-BASE64-ENCODED-OUTPUT');
-  if (begin < 0 || end < 0 || end <= begin) throw new Error('Could not find the DOGDATA begin/end markers.');
-  return raw.slice(begin + 'BEGIN-COMPRESSED-BASE64-ENCODED-OUTPUT'.length, end).replace(/[^A-Za-z0-9+/=]/g, '');
+  if (begin < 0 || end < 0 || end <= begin) throw new Error('could not find the DOGDATA begin/end markers. paste the complete output, including both marker lines.');
+  const b64 = raw.slice(begin + 'BEGIN-COMPRESSED-BASE64-ENCODED-OUTPUT'.length, end).replace(/[^A-Za-z0-9+/=]/g, '');
+  if (!b64) throw new Error('no Base64 data found between the DOGDATA markers.');
+  return b64;
 }
 async function decodeDogData(raw) {
-  if (!('DecompressionStream' in window)) throw new Error('This browser does not support gzip decompression. Try updating Firefox.');
+  if (!('DecompressionStream' in window)) throw new Error('this browser does not support gzip decompression. try updating your browser, or use firefox.');
   const b64 = extractPayload(raw);
-  const binary = atob(b64);
+  let binary;
+  try {
+    binary = atob(b64);
+  } catch (e) {
+    throw new Error('base64 decoding failed. check that you pasted the complete DOGDATA output.');
+  }
   const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-  const jsonText = await new Response(stream).text();
-  const parsed = JSON.parse(jsonText);
-  if (!parsed.inventory || typeof parsed.inventory !== 'object') throw new Error('The file decompressed, but it does not contain an inventory object.');
+  let jsonText;
+  try {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    jsonText = await new Response(stream).text();
+  } catch (e) {
+    throw new Error('could not decompress the data. make sure the output was copied completely!');
+  }
+  let parsed;
+  try { parsed = JSON.parse(jsonText); }
+  catch (e) { throw new Error('the data decompressed, but its json could not be read. make sure you pasted the complete output!'); }
+  if (!parsed.inventory || typeof parsed.inventory !== 'object') throw new Error('the file decompressed, but it doesnt contain an inventory object.');
   return parsed;
 }
 function loadImage(src) {
@@ -104,24 +142,51 @@ function wrapText(text, maxWidth, font) {
 async function drawInventory(data) {
   const scale = Number(document.querySelector('#scale').value) || 1.5;
   const categories = Object.entries(data.inventory).filter(([,items]) => Array.isArray(items) && items.length);
-  const baseW = 1800, cols = 4, gap = 14, outer = 18, panelPad = 10;
+  const cols = 3;
+  const gap = 14;
+  const outer = 18;
+  const panelPad = 10;
+  const fixedRows = 4;
   const colW = (baseW - outer*2 - gap*(cols-1)) / cols;
   const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;
   const innerCols = Math.max(1, Math.floor((colW - panelPad*2 + cellGap) / (cellW + cellGap)));
-  const categoryLayouts = categories.map(([name, items]) => {
-    const rows = Math.ceil(items.length / innerCols);
-    const height = 12 + titleH + rows * (iconSize + labelH + cellGap) + 10;
-    return {name, items, height, innerCols};
-  });
-  const colHeights = Array(cols).fill(outer);
-  const placements = [];
-  for (const cat of categoryLayouts) {
-    let col = 0;
-    for (let i=1;i<cols;i++) if (colHeights[i] < colHeights[col]) col=i;
-    placements.push({...cat, x: outer + col*(colW+gap), y: colHeights[col]});
-    colHeights[col] += cat.height + gap;
+  const fixedRows = 4;
+  
+const categoryLayouts = categories.map(([name, items]) => {
+  const innerCols = Math.ceil(items.length / fixedRows);
+  const width = panelPad * 2 + innerCols * (cellW + cellGap) - cellGap;
+  const height = 12 + titleH + fixedRows * (iconSize + labelH + cellGap) + 10;
+
+  return {name, items, height, width, innerCols};
+});
+  
+const rowHeights = [];
+
+for (let i = 0; i < categoryLayouts.length; i += cols) {
+  const row = categoryLayouts.slice(i, i + cols);
+  rowHeights.push(Math.max(...row.map(cat => cat.height)));
+}
+
+const placements = [];
+let y = outer;
+
+for (let i = 0; i < categoryLayouts.length; i += cols) {
+  const row = categoryLayouts.slice(i, i + cols);
+  let x = outer;
+
+  for (const cat of row) {
+    placements.push({ ...cat, x, y });
+    x += cat.width + gap;
   }
-  const baseH = Math.max(...colHeights) + outer;
+
+  y += rowHeights[i / cols] + gap;
+}
+
+const baseW = Math.max(
+  ...placements.map(cat => cat.x + cat.width)
+) + outer;
+
+const baseH = y - gap + outer;
   canvas.width = Math.round(baseW*scale);
   canvas.height = Math.round(baseH*scale);
   ctx.setTransform(scale,0,0,scale,0,0);
@@ -129,12 +194,9 @@ async function drawInventory(data) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const cat of placements) {
     ctx.fillStyle = '#1b2740'; ctx.strokeStyle = '#2b3c5b'; ctx.lineWidth = 1;
-    roundRect(ctx, cat.x, cat.y, colW, cat.height, 10); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#f1f3fa'; ctx.font = '600 14px system-ui, sans-serif';
-    ctx.fillText(cat.name.charAt(0).toUpperCase()+cat.name.slice(1), cat.x+colW/2, cat.y+18);
-    const gridW = cat.innerCols*(cellW+cellGap)-cellGap;
-    const startX = cat.x + (colW-gridW)/2;
-    for (let i=0;i<cat.items.length;i++) {
+    roundRect(ctx, cat.x, cat.y, cat.width, cat.height, 10);    ctx.fillStyle = '#f1f3fa'; ctx.font = '600 14px system-ui, sans-serif';
+    ctx.fillText(cat.name.charAt(0).toUpperCase()+cat.name.slice(1), cat.x+cat.width/2, cat.y+18);    const gridW = cat.innerCols*(cellW+cellGap)-cellGap;
+    const startX = cat.x + (cat.width-gridW)/2;    for (let i=0;i<cat.items.length;i++) {
       const item = cat.items[i];
       const c = i % cat.innerCols, r = Math.floor(i / cat.innerCols);
       const x = startX + c*(cellW+cellGap);
@@ -163,29 +225,31 @@ function roundRect(context,x,y,w,h,r) {
 makeButton.addEventListener('click', async () => {
   makeButton.disabled = true; saveButton.disabled = true;
   try {
-    statusBox.textContent = 'Reading and decompressing DOGDATA…';
-    const raw = await fileInput.files[0].text();
+    statusBox.textContent = 'reading and decompressing DOGDATA…';
+    const raw = pastedData.value.trim()
+      ? pastedData.value
+      : await fileInput.files[0].text();
     inventoryData = await decodeDogData(raw);
     const total = Object.values(inventoryData.inventory).reduce((n, arr) => n + (Array.isArray(arr) ? arr.length : 0), 0);
-    statusBox.textContent = `Loaded ${total} item entries across ${Object.keys(inventoryData.inventory).length} categories. Drawing image…`;
+    statusBox.textContent = `loaded ${total} item entries across ${Object.keys(inventoryData.inventory).length} categories. makin' ur png…`;
     await drawInventory(inventoryData);
-    statusBox.textContent = `Preview ready: ${total} item entries, ${canvas.width} × ${canvas.height} pixels.`;
+    statusBox.textContent = `preview ready: ${total} item entries, ${canvas.width} × ${canvas.height} pixels.`;
     saveButton.disabled = false;
   } catch (e) {
-    statusBox.textContent = 'Could not generate image: ' + (e && e.message ? e.message : String(e));
+    statusBox.textContent = 'could not generate image: ' + (e && e.message ? e.message : String(e));
   } finally {
-    makeButton.disabled = !fileInput.files.length;
+    makeButton.disabled = !hasInput();
   }
 });
 saveButton.addEventListener('click', () => {
   canvas.toBlob(blob => {
-    if (!blob) { statusBox.textContent = 'Firefox could not export this canvas. Try Standard image size.'; return; }
+    if (!blob) { statusBox.textContent = 'could not export this canvas. try standard image size.'; return; }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'dogonline-inventory.png';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
-    statusBox.textContent = `PNG created (${Math.round(blob.size/1024)} KB). If Firefox opens the image instead of downloading it, use the browser menu to save it.`;
+    statusBox.textContent = `png created (${Math.round(blob.size/1024)} KB). if ur browser opens the image instead of downloading it, use the browser menu to save it.`;
   }, 'image/png');
 });
 </script>
