@@ -147,6 +147,7 @@ async function drawInventory(data) {
   const outer = 18;
   const panelPad = 10;
   const fixedRows = 4;
+  const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;
   const colW = (baseW - outer*2 - gap*(cols-1)) / cols;
   const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;
   const innerCols = Math.max(1, Math.floor((colW - panelPad*2 + cellGap) / (cellW + cellGap)));
