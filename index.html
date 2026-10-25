@@ -142,17 +142,13 @@ function wrapText(text, maxWidth, font) {
 async function drawInventory(data) {
   const scale = Number(document.querySelector('#scale').value) || 1.5;
   const categories = Object.entries(data.inventory).filter(([,items]) => Array.isArray(items) && items.length);
+  
   const cols = 3;
   const gap = 14;
   const outer = 18;
   const panelPad = 10;
   const fixedRows = 4;
-  const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;
-  const colW = (baseW - outer*2 - gap*(cols-1)) / cols;
-  const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;
-  const innerCols = Math.max(1, Math.floor((colW - panelPad*2 + cellGap) / (cellW + cellGap)));
-  const fixedRows = 4;
-  
+  const titleH = 32, cellW = 54, iconSize = 42, labelH = 26, cellGap = 4;  
 const categoryLayouts = categories.map(([name, items]) => {
   const innerCols = Math.ceil(items.length / fixedRows);
   const width = panelPad * 2 + innerCols * (cellW + cellGap) - cellGap;
